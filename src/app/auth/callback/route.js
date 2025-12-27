@@ -3,19 +3,9 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 export async function GET(request) {
-    const { searchParams } = new URL(request.url)
+    const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
     const next = searchParams.get('next') ?? '/dashboard'
-
-    // Determine safe Base URL to prevent localhost redirects in prod
-    let baseUrl = process.env.NEXT_PUBLIC_APP_URL
-    if (!baseUrl) {
-        if (request.url.includes('localhost') || request.url.includes('127.0.0.1')) {
-            baseUrl = new URL(request.url).origin
-        } else {
-            baseUrl = 'https://applyos.pro'
-        }
-    }
 
     if (code) {
         const cookieStore = await cookies()
@@ -49,13 +39,13 @@ export async function GET(request) {
 
             // If onboarding is complete (3), go to intended destination or dashboard
             if (step >= 3) {
-                return NextResponse.redirect(`${baseUrl}${next}`)
+                return NextResponse.redirect(`${origin}${next}`)
             } else {
-                return NextResponse.redirect(`${baseUrl}/onboarding`)
+                return NextResponse.redirect(`${origin}/onboarding`)
             }
         }
     }
 
     // return the user to an error page with instructions
-    return NextResponse.redirect(`${baseUrl}/login?error=auth-code-error`)
+    return NextResponse.redirect(`${origin}/login?error=auth-code-error`)
 }

@@ -20,10 +20,7 @@ export function Form() {
     const router = useRouter()
 
     const getRedirectUrl = () => {
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        return isLocal
-            ? `${window.location.origin}/auth/callback`
-            : `https://applyos.pro/auth/callback`
+        return `${window.location.origin}/auth/callback`
     }
 
     async function handleLogin(e) {
