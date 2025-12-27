@@ -37,6 +37,13 @@ export async function middleware(request) {
         data: { user },
     } = await supabase.auth.getUser()
 
+    // Failsafe: If Supabase redirects to Root with Code (Misconfiguration), forward to Callback
+    if (request.nextUrl.pathname === '/' && request.nextUrl.searchParams.has('code')) {
+        const callbackUrl = new URL('/auth/callback', request.url)
+        callbackUrl.search = request.nextUrl.search
+        return NextResponse.redirect(callbackUrl)
+    }
+
     // Protect dashboard routes
     if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url
