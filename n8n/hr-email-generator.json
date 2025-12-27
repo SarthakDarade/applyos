@@ -1,0 +1,92 @@
+{
+    "name": "HR Email Generator",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "email-generator",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ],
+            "id": "webhook-trigger",
+            "name": "Webhook"
+        },
+        {
+            "parameters": {
+                "modelId": "gpt-3.5-turbo",
+                "messages": {
+                    "values": [
+                        {
+                            "role": "system",
+                            "content": "You are generating a short, professional job application email to HR or a recruiter. Rules: Max 120 words. Not a cover letter. No emotional language. No exaggeration. No generic phrases. Mention resume only once. Do NOT repeat job description. Output must feel human and professional. Return ONLY JSON in the format { \"subject\": \"...\", \"body\": \"...\" }"
+                        },
+                        {
+                            "role": "user",
+                            "content": "='Generate an email for the following details: ' + JSON.stringify($json.body)"
+                        }
+                    ]
+                },
+                "jsonOutput": true
+            },
+            "type": "@n8n/n8n-nodes-langchain.openAiChatModel",
+            "typeVersion": 1,
+            "position": [
+                220,
+                0
+            ],
+            "id": "openai-chat",
+            "name": "OpenAI Chat Model",
+            "credentials": {
+                "openAiApi": {
+                    "id": "YOUR_OPENAI_CREDENTIAL_ID",
+                    "name": "OpenAI account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json.message.content }}",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                440,
+                0
+            ],
+            "id": "respond-webhook",
+            "name": "Respond to Webhook"
+        }
+    ],
+    "pinData": {},
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "OpenAI Chat Model",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI Chat Model": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
