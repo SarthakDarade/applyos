@@ -56,7 +56,7 @@ export const metadata = {
     },
   },
   verification: {
-    google: "google-site-verification-code", // User to replace
+    google: "nX_p3yuUq_ebCEEqAUr-ZIaMLYEgjtdRto24U6qcXWY",
   }
 };
 
