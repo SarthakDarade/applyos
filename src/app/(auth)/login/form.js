@@ -36,7 +36,7 @@ export function Form() {
     }
 
     async function handleLogin() {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error, data } = await supabase.auth.signInWithPassword({
             email,
             password,
         })
@@ -48,8 +48,21 @@ export function Form() {
             }
             setLoading(false)
         } else {
+            // Check profile for onboarding status
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('onboarding_step')
+                .eq('id', data.user.id)
+                .single()
+
+            const step = profile?.onboarding_step || 0
+
             router.refresh()
-            router.push('/dashboard')
+            if (step >= 3) {
+                router.push('/dashboard')
+            } else {
+                router.push('/onboarding')
+            }
         }
     }
 
@@ -69,9 +82,25 @@ export function Form() {
             if (data?.user && !data?.session) {
                 setMessage('Account created! Please check your email to confirm.')
                 setLoading(false)
+            } else if (data?.session) {
+                // Check profile if auto-logged in
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('onboarding_step')
+                    .eq('id', data.user.id)
+                    .single()
+
+                const step = profile?.onboarding_step || 0
+
+                router.refresh()
+                if (step >= 3) {
+                    router.push('/dashboard')
+                } else {
+                    router.push('/onboarding')
+                }
             } else {
                 router.refresh()
-                router.push('/dashboard')
+                router.push('/onboarding') // New user usually goes to onboarding
             }
         }
     }
