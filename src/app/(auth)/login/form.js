@@ -23,7 +23,7 @@ export function Form() {
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         return isLocal
             ? `${window.location.origin}/auth/callback`
-            : `${window.location.origin}/auth/callback`
+            : `https://applyos.pro/auth/callback`
     }
 
     async function handleLogin(e) {
