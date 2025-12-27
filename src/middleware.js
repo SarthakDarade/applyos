@@ -45,8 +45,21 @@ export async function middleware(request) {
     }
 
     // Protect dashboard routes
-    if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
-        return NextResponse.redirect(new URL('/login', request.url))
+    if (request.nextUrl.pathname.startsWith('/dashboard')) {
+        if (!user) {
+            return NextResponse.redirect(new URL('/login', request.url))
+        }
+
+        // Check onboarding step
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('onboarding_step')
+            .eq('id', user.id)
+            .single()
+
+        if (profile?.onboarding_step < 3) {
+            return NextResponse.redirect(new URL('/onboarding', request.url))
+        }
     }
 
     return response

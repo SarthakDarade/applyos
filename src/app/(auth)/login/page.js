@@ -12,7 +12,17 @@ export default async function LoginPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (user) {
-        redirect('/dashboard')
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('onboarding_step')
+            .eq('id', user.id)
+            .single()
+
+        if (profile?.onboarding_step >= 3) {
+            redirect('/dashboard')
+        } else {
+            redirect('/onboarding')
+        }
     }
 
     return (
