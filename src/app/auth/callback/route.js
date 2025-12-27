@@ -7,11 +7,11 @@ export async function GET(request) {
     const code = searchParams.get('code')
     const next = searchParams.get('next') ?? '/dashboard'
 
-    // ROBUST REDIRECT FIX:
-    // If running in production but origin is localhost (e.g. behind proxy/container), force the public domain.
-    // Otherwise trust the origin (supports local dev and correct headers).
+    // STRICT REDIRECT LOGIC:
+    // In Production: ALWAYS use the canonical domain. Ignore internal/proxy origins.
+    // In Development: Use the request origin to support localhost/tunneling.
     let redirectBase = origin
-    if (process.env.NODE_ENV === 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+    if (process.env.NODE_ENV === 'production') {
         redirectBase = process.env.NEXT_PUBLIC_APP_URL || 'https://applyos.pro'
     }
 
