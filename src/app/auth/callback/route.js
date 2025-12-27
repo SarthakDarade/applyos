@@ -3,10 +3,19 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 export async function GET(request) {
-    const { searchParams, origin } = new URL(request.url)
+    const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
-    // if "next" is in param, use it as the redirect URL
     const next = searchParams.get('next') ?? '/dashboard'
+
+    // Determine safe Base URL to prevent localhost redirects in prod
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    if (!baseUrl) {
+        if (request.url.includes('localhost') || request.url.includes('127.0.0.1')) {
+            baseUrl = new URL(request.url).origin
+        } else {
+            baseUrl = 'https://applyos.pro'
+        }
+    }
 
     if (code) {
         const cookieStore = await cookies()
@@ -39,16 +48,14 @@ export async function GET(request) {
             const step = profile?.onboarding_step || 0
 
             // If onboarding is complete (3), go to intended destination or dashboard
-            // If not complete, force them to the correct step
             if (step >= 3) {
-                return NextResponse.redirect(`${origin}${next}`)
+                return NextResponse.redirect(`${baseUrl}${next}`)
             } else {
-                // Simplified flow: All new users go to the single onboarding page
-                return NextResponse.redirect(`${origin}/onboarding`)
+                return NextResponse.redirect(`${baseUrl}/onboarding`)
             }
         }
     }
 
     // return the user to an error page with instructions
-    return NextResponse.redirect(`${origin}/login?error=auth-code-error`)
+    return NextResponse.redirect(`${baseUrl}/login?error=auth-code-error`)
 }
