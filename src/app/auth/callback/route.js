@@ -7,6 +7,14 @@ export async function GET(request) {
     const code = searchParams.get('code')
     const next = searchParams.get('next') ?? '/dashboard'
 
+    // ROBUST REDIRECT FIX:
+    // If running in production but origin is localhost (e.g. behind proxy/container), force the public domain.
+    // Otherwise trust the origin (supports local dev and correct headers).
+    let redirectBase = origin
+    if (process.env.NODE_ENV === 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+        redirectBase = process.env.NEXT_PUBLIC_APP_URL || 'https://applyos.pro'
+    }
+
     if (code) {
         const cookieStore = await cookies()
         const supabase = createServerClient(
@@ -39,13 +47,13 @@ export async function GET(request) {
 
             // If onboarding is complete (3), go to intended destination or dashboard
             if (step >= 3) {
-                return NextResponse.redirect(`${origin}${next}`)
+                return NextResponse.redirect(`${redirectBase}${next}`)
             } else {
-                return NextResponse.redirect(`${origin}/onboarding`)
+                return NextResponse.redirect(`${redirectBase}/onboarding`)
             }
         }
     }
 
     // return the user to an error page with instructions
-    return NextResponse.redirect(`${origin}/login?error=auth-code-error`)
+    return NextResponse.redirect(`${redirectBase}/login?error=auth-code-error`)
 }
