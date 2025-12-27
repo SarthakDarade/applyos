@@ -15,20 +15,27 @@ export function Form() {
     const [message, setMessage] = useState('')
     const [socialLoading, setSocialLoading] = useState(null) // 'google' or 'linkedin'
     const [showReset, setShowReset] = useState(false)
+    const [isSignUp, setIsSignUp] = useState(false)
 
     const supabase = createClient()
     const router = useRouter()
 
-    const getRedirectUrl = () => {
-        return `${window.location.origin}/auth/callback`
-    }
 
-    async function handleLogin(e) {
+
+    async function handleSubmit(e) {
         e.preventDefault()
         setLoading(true)
         setMessage('')
-        setShowReset(false)
 
+        if (isSignUp) {
+            await handleSignUp()
+        } else {
+            await handleLogin()
+        }
+        // Loading disabled in sub-functions if error, or redirect if success
+    }
+
+    async function handleLogin() {
         const { error } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -36,15 +43,37 @@ export function Form() {
 
         if (error) {
             setMessage(`Error: ${error.message}`)
-            // If invalid credentials, offer reset
             if (error.message.includes("Invalid login credentials") || error.message.includes("password")) {
                 setShowReset(true)
             }
+            setLoading(false)
         } else {
             router.refresh()
-            router.push('/dashboard') // Or let middleware handle
+            router.push('/dashboard')
         }
-        setLoading(false)
+    }
+
+    async function handleSignUp() {
+        const { error, data } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                emailRedirectTo: `${window.location.origin}/auth/callback`,
+            },
+        })
+
+        if (error) {
+            setMessage(`Error: ${error.message}`)
+            setLoading(false)
+        } else {
+            if (data?.user && !data?.session) {
+                setMessage('Account created! Please check your email to confirm.')
+                setLoading(false)
+            } else {
+                router.refresh()
+                router.push('/dashboard')
+            }
+        }
     }
 
     async function handleResetPassword() {
@@ -67,7 +96,6 @@ export function Form() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider,
             options: {
-                redirectTo: getRedirectUrl(),
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent',
@@ -127,7 +155,7 @@ export function Form() {
             </div>
 
             {/* Email/Password Form */}
-            <form onSubmit={handleLogin} className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+            <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
                 <div className="space-y-2">
                     <label htmlFor="email" className="block text-xs font-medium text-neutral-400 uppercase tracking-wide">
                         Email address
@@ -153,7 +181,7 @@ export function Form() {
                         <label htmlFor="password" className="block text-xs font-medium text-neutral-400 uppercase tracking-wide">
                             Password
                         </label>
-                        {showReset && (
+                        {!isSignUp && showReset && (
                             <button
                                 type="button"
                                 onClick={handleResetPassword}
@@ -171,6 +199,7 @@ export function Form() {
                             type="password"
                             autoComplete="current-password"
                             required
+                            minLength={6}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="glass-input block w-full rounded-lg bg-white/5 p-3 pl-10 text-white sm:text-sm focus:outline-none focus:ring-1 focus:ring-white/20"
@@ -191,9 +220,34 @@ export function Form() {
                     disabled={loading || socialLoading}
                     className="w-full flex justify-center h-11 text-base bg-white text-black hover:bg-neutral-200 mt-2"
                 >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign In'}
+                    {loading ? (
+                        <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            {isSignUp ? 'Creating account...' : 'Signing in...'}
+                        </>
+                    ) : (
+                        isSignUp ? 'Create Account' : 'Sign In'
+                    )}
                 </Button>
             </form>
+
+            <div className="text-center pt-2">
+                <button
+                    type="button"
+                    onClick={() => {
+                        setIsSignUp(!isSignUp)
+                        setMessage('')
+                        setShowReset(false)
+                    }}
+                    className="text-sm text-neutral-400 hover:text-white transition-colors"
+                >
+                    {isSignUp ? (
+                        <>Already have an account? <span className="text-blue-400">Sign in</span></>
+                    ) : (
+                        <>Don't have an account? <span className="text-blue-400">Sign up</span></>
+                    )}
+                </button>
+            </div>
         </div>
     )
 }
