@@ -3,53 +3,70 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Mail, Loader2 } from 'lucide-react'
+import { Mail, Loader2, KeyRound } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export function Form() {
     const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
 
     const [loading, setLoading] = useState(false)
+    const [resetLoading, setResetLoading] = useState(false)
     const [message, setMessage] = useState('')
     const [socialLoading, setSocialLoading] = useState(null) // 'google' or 'linkedin'
+    const [showReset, setShowReset] = useState(false)
 
     const supabase = createClient()
     const router = useRouter()
 
     const getRedirectUrl = () => {
-        // Check if running on localhost to determine redirect URL
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         return isLocal
             ? `${window.location.origin}/auth/callback`
             : `${window.location.origin}/auth/callback`
     }
 
-    async function handleEmailLogin(e) {
+    async function handleLogin(e) {
         e.preventDefault()
         setLoading(true)
         setMessage('')
+        setShowReset(false)
 
-        const { error } = await supabase.auth.signInWithOtp({
+        const { error } = await supabase.auth.signInWithPassword({
             email,
-            options: {
-                emailRedirectTo: getRedirectUrl(),
-            },
+            password,
         })
 
         if (error) {
             setMessage(`Error: ${error.message}`)
+            // If invalid credentials, offer reset
+            if (error.message.includes("Invalid login credentials") || error.message.includes("password")) {
+                setShowReset(true)
+            }
         } else {
-            setMessage('Check your email for the login link!')
+            router.refresh()
+            router.push('/dashboard') // Or let middleware handle
         }
         setLoading(false)
     }
 
-
+    async function handleResetPassword() {
+        setResetLoading(true)
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/auth/reset-callback`,
+        })
+        if (error) {
+            setMessage(`Reset Error: ${error.message}`)
+        } else {
+            setMessage('Password reset link sent! Check your email.')
+            setShowReset(false)
+        }
+        setResetLoading(false)
+    }
 
     async function handleSocialLogin(provider) {
         setSocialLoading(provider)
         setMessage('')
-
         const { error } = await supabase.auth.signInWithOAuth({
             provider,
             options: {
@@ -60,12 +77,10 @@ export function Form() {
                 }
             },
         })
-
         if (error) {
             setMessage(`Error: ${error.message}`)
             setSocialLoading(null)
         }
-        // No need to reset loading as page will redirect
     }
 
     return (
@@ -110,31 +125,66 @@ export function Form() {
                     <span className="w-full border-t border-white/5" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-[#0e0e11] px-2 text-neutral-500">Or continue with</span>
+                    <span className="bg-[#0e0e11] px-2 text-neutral-500">Or continue with email</span>
                 </div>
             </div>
 
-            {/* Email Form */}
-            <form onSubmit={handleEmailLogin} className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+            {/* Email/Password Form */}
+            <form onSubmit={handleLogin} className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
                 <div className="space-y-2">
                     <label htmlFor="email" className="block text-xs font-medium text-neutral-400 uppercase tracking-wide">
                         Email address
                     </label>
-                    <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="glass-input block w-full rounded-lg bg-white/5 p-3 text-white sm:text-sm focus:outline-none focus:ring-1 focus:ring-white/20"
-                        placeholder="name@company.com"
-                    />
+                    <div className="relative">
+                        <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            autoComplete="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="glass-input block w-full rounded-lg bg-white/5 p-3 pl-10 text-white sm:text-sm focus:outline-none focus:ring-1 focus:ring-white/20"
+                            placeholder="name@company.com"
+                        />
+                        <Mail className="absolute left-3 top-2.5 h-4 w-4 text-neutral-500" />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <label htmlFor="password" className="block text-xs font-medium text-neutral-400 uppercase tracking-wide">
+                            Password
+                        </label>
+                        {showReset && (
+                            <button
+                                type="button"
+                                onClick={handleResetPassword}
+                                disabled={resetLoading}
+                                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                            >
+                                {resetLoading ? 'Sending link...' : 'Forgot password?'}
+                            </button>
+                        )}
+                    </div>
+                    <div className="relative">
+                        <input
+                            id="password"
+                            name="password"
+                            type="password"
+                            autoComplete="current-password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="glass-input block w-full rounded-lg bg-white/5 p-3 pl-10 text-white sm:text-sm focus:outline-none focus:ring-1 focus:ring-white/20"
+                            placeholder="••••••••"
+                        />
+                        <KeyRound className="absolute left-3 top-2.5 h-4 w-4 text-neutral-500" />
+                    </div>
                 </div>
 
                 {message && (
-                    <div className={`text-sm p-3 rounded-md bg-white/5 border border-white/5 ${message.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>
+                    <div className={`text-sm p-3 rounded-md bg-white/5 border border-white/5 ${message.startsWith('Error') || message.startsWith('Reset Error') ? 'text-red-400' : 'text-green-400'}`}>
                         {message}
                     </div>
                 )}
@@ -142,9 +192,9 @@ export function Form() {
                 <Button
                     type="submit"
                     disabled={loading || socialLoading}
-                    className="w-full flex justify-center h-11 text-base bg-white text-black hover:bg-neutral-200"
+                    className="w-full flex justify-center h-11 text-base bg-white text-black hover:bg-neutral-200 mt-2"
                 >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign in with Email'}
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign In'}
                 </Button>
             </form>
         </div>
