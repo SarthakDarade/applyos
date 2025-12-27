@@ -7,15 +7,11 @@ export async function GET(request) {
     const code = searchParams.get('code')
     const next = searchParams.get('next') ?? '/dashboard'
 
-    // DYNAMIC REDIRECT LOGIC:
-    // Support Vercel Previews, Custom Domains, and Localhost dynamically using headers.
-    const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
-    const protocol = request.headers.get('x-forwarded-proto') || 'https'
-
-    // Fallback to request origin if headers missing (unlikely)
+    // ULTIMATE REDIRECT FIX:
+    // If we're not on localhost, we MUST be on the production site.
     let redirectBase = origin
-    if (host) {
-        redirectBase = `${protocol}://${host}`
+    if (process.env.NODE_ENV === 'production' || (!origin.includes('localhost') && !origin.includes('127.0.0.1'))) {
+        redirectBase = 'https://applyos.pro'
     }
 
     // Allow manual override via Env Var if specifically set (e.g. for strict canonical URL)

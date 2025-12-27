@@ -58,7 +58,7 @@ export function Form() {
             email,
             password,
             options: {
-                emailRedirectTo: `${window.location.origin}/auth/callback`,
+                emailRedirectTo: getRedirectUrl(),
             },
         })
 
@@ -90,12 +90,20 @@ export function Form() {
         setResetLoading(false)
     }
 
+    const getRedirectUrl = () => {
+        if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+            return 'https://applyos.pro/auth/callback'
+        }
+        return `${window.location.origin}/auth/callback`
+    }
+
     async function handleSocialLogin(provider) {
         setSocialLoading(provider)
         setMessage('')
         const { error } = await supabase.auth.signInWithOAuth({
             provider,
             options: {
+                redirectTo: getRedirectUrl(),
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent',
