@@ -7,12 +7,21 @@ export async function GET(request) {
     const code = searchParams.get('code')
     const next = searchParams.get('next') ?? '/dashboard'
 
-    // STRICT REDIRECT LOGIC:
-    // In Production: ALWAYS use the canonical domain. Ignore internal/proxy origins.
-    // In Development: Use the request origin to support localhost/tunneling.
+    // DYNAMIC REDIRECT LOGIC:
+    // Support Vercel Previews, Custom Domains, and Localhost dynamically using headers.
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
+    const protocol = request.headers.get('x-forwarded-proto') || 'https'
+
+    // Fallback to request origin if headers missing (unlikely)
     let redirectBase = origin
-    if (process.env.NODE_ENV === 'production') {
-        redirectBase = process.env.NEXT_PUBLIC_APP_URL || 'https://applyos.pro'
+    if (host) {
+        redirectBase = `${protocol}://${host}`
+    }
+
+    // Allow manual override via Env Var if specifically set (e.g. for strict canonical URL)
+    if (process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
+        // Option: Uncomment next line to force canonical. Currently preferring Dynamic.
+        // redirectBase = process.env.NEXT_PUBLIC_APP_URL 
     }
 
     if (code) {
