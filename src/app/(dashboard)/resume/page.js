@@ -19,11 +19,17 @@ export default async function ResumeDashboardPage() {
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
+    // Fetch Profile for limit checks
+    const { data: profile } = await supabase
+        .from('professional_profiles')
+        .select('subscription_plan')
+        .eq('user_id', user.id)
+        .single();
+
     if (error) {
         console.error("Error fetching resumes:", error);
-        // We continue with empty list/error handling to prevent page crash
         resumes = [];
     }
 
-    return <ResumeDashboard resumes={resumes || []} user={user} />;
+    return <ResumeDashboard resumes={resumes || []} user={user} profile={profile} />;
 }

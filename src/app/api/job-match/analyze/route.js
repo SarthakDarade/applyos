@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { logActivity } from '@/lib/activity-logger';
 
 export async function POST(request) {
     try {
@@ -35,36 +36,51 @@ export async function POST(request) {
         });
 
         if (!n8nResponse.ok) {
-            console.error(`N8N Error: ${n8nResponse.status}`);
+            const errorText = await n8nResponse.text();
+            console.error(`N8N Error (${n8nResponse.status}):`, errorText);
             return NextResponse.json({ error: "Couldn't analyze this job right now" }, { status: 502 });
+        }
+
+        const responseText = await n8nResponse.text();
+
+        if (!responseText || responseText.trim() === '') {
+            console.error("N8N returned an empty response body.");
+            return NextResponse.json({
+                error: "Analysis service returned no data. It might be overloaded or timed out."
+            }, { status: 502 });
         }
 
         let rawResult;
         try {
-            rawResult = await n8nResponse.json();
+            rawResult = JSON.parse(responseText);
         } catch (e) {
-            console.error("Invalid JSON from N8N", e);
-            return NextResponse.json({ error: "Analysis service returned invalid data" }, { status: 502 });
+            console.error("Invalid JSON from N8N. Raw Text:", responseText);
+            return NextResponse.json({
+                error: "Analysis service returned invalid data format."
+            }, { status: 502 });
         }
 
         // Normalize response from N8N
         let data = Array.isArray(rawResult) ? rawResult[0] : rawResult;
+
+        if (!data) {
+            console.error("N8N response normalization failed. Data is empty.");
+            return NextResponse.json({
+                error: "Analysis service returned no valid data. Please try again."
+            }, { status: 502 });
+        }
 
         // Unwrap 'output' key if present
         if (data.output) {
             data = data.output;
         }
 
-        // Log Activity for Stats
-        try {
-            await supabase.from('user_activity_log').insert({
-                user_id: user.id,
-                action_type: 'job_scan',
-                details: { job_title: job.title || 'Unknown Role', company: job.company || 'Unknown Company' }
-            });
-        } catch (e) {
-            console.warn("Failed to log scan activity:", e);
-        }
+        // Log Activity for Stats using centralized logger
+        await logActivity(
+            'Job Analysis',
+            `Analyzed matching for ${job.title || 'Unknown Role'} at ${job.company || 'Unknown Company'}`,
+            { job_title: job.title, company: job.company }
+        );
 
         return NextResponse.json(data);
 

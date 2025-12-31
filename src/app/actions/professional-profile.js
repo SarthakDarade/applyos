@@ -1,7 +1,9 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { logActivity } from '@/lib/activity-logger'
 
 export async function updateProfessionalProfile(userId, data) {
@@ -51,20 +53,10 @@ export async function updateProfessionalProfile(userId, data) {
                 ...data, // Keep legacy columns in sync
                 resume_data: resumeData,
                 current_position: currentPosition,
+                onboarding_step: 3, // Mark as complete when saved through /profile or onboarding form
                 updated_at: new Date().toISOString()
             }, {
                 onConflict: 'user_id'
-            })
-
-        // Also mark onboarding as complete (Step 3) in public profile
-        await supabase
-            .from('profiles')
-            .update({ onboarding_step: 3 })
-            .eq('id', userId)
-            .lt('onboarding_step', 3) // Only if not already 3 or more
-            .select() // Optional, to execute
-            .then(({ error }) => {
-                if (error) console.warn("Failed to update onboarding step:", error.message)
             })
 
         if (error) {
@@ -125,4 +117,41 @@ export async function getProfessionalProfile(userId) {
     }
 
     return data
+}
+
+export async function deleteAccount() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        throw new Error('Not authenticated')
+    }
+
+    const adminSupabase = createAdminClient()
+
+    // 1. Delete Storage Files (Resumes)
+    const { data: files } = await adminSupabase
+        .storage
+        .from('resumes')
+        .list(`${user.id}`)
+
+    if (files?.length > 0) {
+        const pathsToDelete = files.map(f => `${user.id}/${f.name}`)
+        await adminSupabase.storage.from('resumes').remove(pathsToDelete)
+    }
+
+    // 2. Delete Database Records (Manual Cascade for reliability)
+    await adminSupabase.from('user_resumes').delete().eq('user_id', user.id)
+    await adminSupabase.from('job_preferences').delete().eq('user_id', user.id)
+    await adminSupabase.from('professional_profiles').delete().eq('user_id', user.id)
+
+    // 3. Delete Auth User (Final Step)
+    const { error } = await adminSupabase.auth.admin.deleteUser(user.id)
+
+    if (error) {
+        console.error('Account deletion failed:', error)
+        throw new Error(error.message || 'Failed to delete account')
+    }
+
+    redirect('/login')
 }

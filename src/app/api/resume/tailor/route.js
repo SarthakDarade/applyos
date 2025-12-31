@@ -1,6 +1,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { logActivity } from '@/lib/activity-logger';
 
 export async function POST(request) {
     try {
@@ -10,6 +11,30 @@ export async function POST(request) {
         if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        // --- LIMIT CHECK ---
+        const { data: profile } = await supabase
+            .from('professional_profiles')
+            .select('subscription_plan')
+            .eq('user_id', user.id)
+            .single();
+
+        const isPro = profile?.subscription_plan === 'pro';
+
+        if (!isPro) {
+            const { count } = await supabase
+                .from('user_activity_log')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('action', 'Resume Tailoring');
+
+            if (count >= 2) {
+                return NextResponse.json({
+                    error: 'Limit Reached: Free users can only generate 2 tailored resumes. Upgrade to Pro for unlimited tailoring and AI power.'
+                }, { status: 403 });
+            }
+        }
+        // -------------------
 
         const body = await request.json();
         const { resume_data, job_requirements, job_title = '', company_name = '' } = body;
@@ -182,6 +207,13 @@ Output a Resume Decision Map matching this exact JSON structure:
                 }
             });
         }
+
+        // Log Activity for Stats
+        await logActivity(
+            'Resume Tailoring',
+            `Tailored resume for ${job_title || 'Role'} at ${company_name || 'Company'}`,
+            { job_title, company_name }
+        );
 
         return NextResponse.json({ decision_map });
 

@@ -13,8 +13,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { calculateResumeScore, getScoreColor, getScoreColorBg } from '@/lib/resume/scorer';
 import { ResumeTailorSection } from './ResumeTailorSection';
+import { UpgradeModal } from '@/components/ui/upgrade-modal';
 
-export function ResumeDashboard({ resumes = [], user }) {
+export function ResumeDashboard({ resumes = [], user, profile }) {
     const router = useRouter();
     const supabase = createClient();
     const [loading, setLoading] = useState(false);
@@ -23,6 +24,11 @@ export function ResumeDashboard({ resumes = [], user }) {
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
     const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'oldest' | 'alpha'
     const [deleteTarget, setDeleteTarget] = useState(null);
+
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [upgradeReason, setUpgradeReason] = useState({ title: '', message: '' });
+
+    const isPro = profile?.subscription_plan === 'pro';
 
     // Derived State
     const filteredAndSortedList = useMemo(() => {
@@ -43,6 +49,16 @@ export function ResumeDashboard({ resumes = [], user }) {
 
     // Actions
     const handleCreate = async () => {
+        // Check Limit for Free Users (5 Resumes)
+        if (!isPro && list.length >= 5) {
+            setUpgradeReason({
+                title: "Resume limit reached",
+                message: "Free users can create up to 5 resumes. Upgrade to Pro for unlimited resumes and advanced tailoring tools."
+            });
+            setShowUpgradeModal(true);
+            return;
+        }
+
         setLoading(true);
         try {
             // Start with a blank slate, only pre-filling identity from Auth
@@ -121,6 +137,17 @@ export function ResumeDashboard({ resumes = [], user }) {
 
     const handleDuplicate = async (resume, e) => {
         e.stopPropagation();
+
+        // Check Limit for Free Users (5 Resumes)
+        if (!isPro && list.length >= 5) {
+            setUpgradeReason({
+                title: "Resume limit reached",
+                message: "Free users can create up to 5 resumes. Upgrade to Pro for unlimited resumes and advanced tailoring tools."
+            });
+            setShowUpgradeModal(true);
+            return;
+        }
+
         const toastId = `dup-${Date.now()}`;
 
         try {
@@ -143,6 +170,12 @@ export function ResumeDashboard({ resumes = [], user }) {
 
     return (
         <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-500/30 pb-20">
+            <UpgradeModal
+                isOpen={showUpgradeModal}
+                onClose={() => setShowUpgradeModal(false)}
+                title={upgradeReason.title}
+                message={upgradeReason.message}
+            />
             {/* Ambient Background */}
             <div className="fixed inset-0 pointer-events-none z-0">
                 <div className="absolute top-0 left-1/4 w-[1000px] h-[400px] bg-blue-900/10 rounded-[100%] blur-[100px]" />
@@ -184,7 +217,7 @@ export function ResumeDashboard({ resumes = [], user }) {
                 </div>
 
                 {/* Resume Tailor Generator Section */}
-                <ResumeTailorSection resumes={list} />
+                <ResumeTailorSection resumes={list} profile={profile} />
 
                 {/* Toolbar */}
                 <div className="sticky top-4 z-50 mb-8">

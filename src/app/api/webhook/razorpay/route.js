@@ -38,28 +38,82 @@ export async function POST(req) {
 
         if (event.event === 'subscription.activated') {
             const subscriptionId = payload.subscription.entity.id;
-            const { error } = await supabase
-                .from('subscriptions')
-                .update({ plan_id: 'pro', status: 'active', updated_at: new Date().toISOString() })
-                .eq('razorpay_subscription_id', subscriptionId);
 
-            if (error) console.error("Activation DB Error:", error);
+            // Get user_id first
+            const { data: sub } = await supabase
+                .from('subscriptions')
+                .select('user_id')
+                .eq('razorpay_subscription_id', subscriptionId)
+                .single();
+
+            if (sub?.user_id) {
+                await Promise.all([
+                    supabase
+                        .from('subscriptions')
+                        .update({ plan_id: 'pro', status: 'active', updated_at: new Date().toISOString() })
+                        .eq('user_id', sub.user_id),
+                    supabase
+                        .from('professional_profiles')
+                        .update({
+                            subscription_plan: 'pro',
+                            subscription_status: 'active',
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('user_id', sub.user_id)
+                ]);
+            }
         }
         else if (event.event === 'subscription.cancelled' || event.event === 'subscription.completed') {
             const subscriptionId = payload.subscription.entity.id;
-            await supabase
+
+            const { data: sub } = await supabase
                 .from('subscriptions')
-                .update({ plan_id: 'free', status: 'cancelled', updated_at: new Date().toISOString() })
-                .eq('razorpay_subscription_id', subscriptionId);
+                .select('user_id')
+                .eq('razorpay_subscription_id', subscriptionId)
+                .single();
+
+            if (sub?.user_id) {
+                await Promise.all([
+                    supabase
+                        .from('subscriptions')
+                        .update({ plan_id: 'free', status: 'cancelled', updated_at: new Date().toISOString() })
+                        .eq('user_id', sub.user_id),
+                    supabase
+                        .from('professional_profiles')
+                        .update({
+                            subscription_plan: 'free',
+                            subscription_status: 'inactive',
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('user_id', sub.user_id)
+                ]);
+            }
         }
         else if (event.event === 'payment.failed') {
-            // Handle failed payment for subscription
             const subscriptionId = payload.payment?.entity?.subscription_id;
             if (subscriptionId) {
-                await supabase
+                const { data: sub } = await supabase
                     .from('subscriptions')
-                    .update({ status: 'failed', plan_id: 'free', updated_at: new Date().toISOString() }) // Revoke access on failure
-                    .eq('razorpay_subscription_id', subscriptionId);
+                    .select('user_id')
+                    .eq('razorpay_subscription_id', subscriptionId)
+                    .single();
+
+                if (sub?.user_id) {
+                    await Promise.all([
+                        supabase
+                            .from('subscriptions')
+                            .update({ status: 'failed', plan_id: 'free', updated_at: new Date().toISOString() })
+                            .eq('user_id', sub.user_id),
+                        supabase
+                            .from('professional_profiles')
+                            .update({
+                                subscription_plan: 'free',
+                                subscription_status: 'failed',
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('user_id', sub.user_id)
+                    ]);
+                }
             }
         }
 

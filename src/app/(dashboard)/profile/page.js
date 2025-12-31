@@ -13,53 +13,13 @@ export default async function ProfilePage() {
     // 1. Try to fetch existing professional profile
     let profile = await getProfessionalProfile(user.id)
 
-    // 2. If no professional profile, try to fetch migration data from old profiles table
+    // 2. If no professional profile, handle gracefully (though they should have one via trigger)
     if (!profile) {
-        const { data: oldProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single()
-
-        if (oldProfile) {
-            // Safe handling of current_role (could be string or array)
-            let headline = ''
-            if (Array.isArray(oldProfile.current_role)) {
-                headline = oldProfile.current_role[0] || ''
-            } else if (typeof oldProfile.current_role === 'string') {
-                headline = oldProfile.current_role
-            }
-
-            // Map old profile to new schema structure
-            profile = {
-                user_id: user.id,
-                full_name: oldProfile.full_name || user.user_metadata?.full_name || '',
-                location: oldProfile.location || '',
-                headline: headline,
-                professional_summary: oldProfile.bio || '',
-                years_experience: oldProfile.experience_years || 0,
-                skills: oldProfile.skills || [],
-                website: oldProfile.portfolio_url || '',
-                linkedin: oldProfile.linkedin_url || '',
-                email: oldProfile.email || user.email || '',
-
-                // Default empty for complex objects not present in old schema
-                current_position: {},
-                work_experience: [],
-                education: [],
-                projects: [],
-                certifications: [],
-                achievements: [],
-                languages: [],
-                interests: []
-            }
-        } else {
-            // New user, minimal defaults
-            profile = {
-                user_id: user.id,
-                email: user.email || '',
-                full_name: user.user_metadata?.full_name || ''
-            }
+        profile = {
+            user_id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || '',
+            onboarding_step: 0
         }
     }
 

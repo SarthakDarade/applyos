@@ -15,23 +15,12 @@ export default async function SettingsPage() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Fetch full profile data to pass to summary
-    // Fetch professional profile first (New Source of Truth)
+    // Fetch professional profile (Single Source of Truth)
     let { data: profile } = await supabase
         .from('professional_profiles')
         .select('*')
         .eq('user_id', user.id)
         .single()
-
-    // Fallback to old profile if not found
-    if (!profile) {
-        const { data: oldProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single()
-        profile = oldProfile
-    }
 
     const isPro = profile?.subscription_plan === 'pro';
 

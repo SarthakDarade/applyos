@@ -50,9 +50,9 @@ export function Form() {
         } else {
             // Check profile for onboarding status
             const { data: profile } = await supabase
-                .from('profiles')
+                .from('professional_profiles')
                 .select('onboarding_step')
-                .eq('id', data.user.id)
+                .eq('user_id', data.user.id)
                 .single()
 
             const step = profile?.onboarding_step || 0
@@ -85,9 +85,9 @@ export function Form() {
             } else if (data?.session) {
                 // Check profile if auto-logged in
                 const { data: profile } = await supabase
-                    .from('profiles')
+                    .from('professional_profiles')
                     .select('onboarding_step')
-                    .eq('id', data.user.id)
+                    .eq('user_id', data.user.id)
                     .single()
 
                 const step = profile?.onboarding_step || 0

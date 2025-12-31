@@ -52,9 +52,9 @@ export async function middleware(request) {
 
         // Check onboarding step
         const { data: profile } = await supabase
-            .from('profiles')
+            .from('professional_profiles')
             .select('onboarding_step')
-            .eq('id', user.id)
+            .eq('user_id', user.id)
             .single()
 
         if (profile?.onboarding_step < 3) {

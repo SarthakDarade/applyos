@@ -32,16 +32,28 @@ export async function POST(req) {
         }
 
         // Downgrade User
-        const { error } = await supabase
-            .from('subscriptions')
-            .update({
-                plan_id: 'free',
-                status: 'cancelled',
-                updated_at: new Date().toISOString()
-            })
-            .eq('user_id', user.id);
+        // Downgrade User - Sync both tables
+        const [subResult, profResult] = await Promise.all([
+            supabase
+                .from('subscriptions')
+                .update({
+                    plan_id: 'free',
+                    status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('user_id', user.id),
+            supabase
+                .from('professional_profiles')
+                .update({
+                    subscription_plan: 'free',
+                    subscription_status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('user_id', user.id)
+        ]);
 
-        if (error) throw error;
+        if (subResult.error) throw subResult.error;
+        if (profResult.error) throw profResult.error;
 
         return NextResponse.json({ success: true });
 

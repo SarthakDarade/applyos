@@ -9,12 +9,15 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { createClient } from '@/lib/supabase/client';
 import { transformToSectionFormat } from '@/lib/resume/structure';
-
-export function ResumeTailorSection({ resumes }) {
+import { UpgradeModal } from '@/components/ui/upgrade-modal';
+export function ResumeTailorSection({ resumes, profile }) {
     const router = useRouter();
     const [selectedResumeId, setSelectedResumeId] = useState('');
     const [jobDescription, setJobDescription] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+    const isPro = profile?.subscription_plan === 'pro';
 
     const handleGenerate = async () => {
         if (!selectedResumeId) {
@@ -50,6 +53,10 @@ export function ResumeTailorSection({ resumes }) {
 
             if (!response.ok) {
                 const err = await response.json();
+                if (response.status === 403) {
+                    setShowUpgradeModal(true);
+                    return;
+                }
                 throw new Error(err.error || "Tailoring failed");
             }
 
@@ -371,6 +378,12 @@ export function ResumeTailorSection({ resumes }) {
 
     return (
         <section className="relative mb-12 group">
+            <UpgradeModal
+                isOpen={showUpgradeModal}
+                onClose={() => setShowUpgradeModal(false)}
+                title="Tailoring limit reached"
+                message="Free users can generate up to 2 tailored resumes. Upgrade to Pro for unlimited AI tailoring, ATS optimization, and more."
+            />
             {/* Ambient Glow */}
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-blue-600/20 rounded-3xl blur-xl opacity-50 group-hover:opacity-100 transition duration-1000"></div>
 

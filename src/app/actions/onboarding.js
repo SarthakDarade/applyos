@@ -50,8 +50,8 @@ export async function saveEnhancedProfile(formData) {
     }
 
     const { error } = await supabase
-        .from('profiles')
-        .upsert({ id: user.id, ...profileData })
+        .from('professional_profiles')
+        .upsert({ user_id: user.id, ...profileData }, { onConflict: 'user_id' })
 
     if (error) {
         console.error('Save profile failed:', error)
@@ -62,7 +62,7 @@ export async function saveEnhancedProfile(formData) {
     await supabase.auth.updateUser({ data: { full_name: profileData.full_name } })
 
     // Update Onboarding Progress (Step 2 Completed)
-    await supabase.from('profiles').update({ onboarding_step: 2 }).eq('id', user.id)
+    await supabase.from('professional_profiles').update({ onboarding_step: 2 }).eq('user_id', user.id)
 
     return { success: true }
 }
@@ -72,6 +72,6 @@ export async function updateOnboardingStep(step) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
-    await supabase.from('profiles').update({ onboarding_step: step }).eq('id', user.id)
+    await supabase.from('professional_profiles').update({ onboarding_step: step }).eq('user_id', user.id)
     return { success: true }
 }

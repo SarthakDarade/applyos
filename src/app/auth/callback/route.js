@@ -43,9 +43,9 @@ export async function GET(request) {
         if (!error && user) {
             // Check Profile for Onboarding Status
             const { data: profile } = await supabase
-                .from('profiles')
+                .from('professional_profiles')
                 .select('onboarding_step')
-                .eq('id', user.id)
+                .eq('user_id', user.id)
                 .single()
 
             const step = profile?.onboarding_step || 0
